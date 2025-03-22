@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Good Air is Fair</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            background: radial-gradient(circle, #1a1a1a, #000);
+            color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            background: #121212;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 170, 0.5);
+            max-width: 400px;
+            width: 90%;
+            animation: fadeIn 1s ease-in-out;
+            margin: 20px auto;
+        }
+
+        h1 {
+            font-size: 26px;
+            color: #00ffaa;
+        }
+
+        input, button {
+            width: 100%;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        input {
+            padding: 12px;
+            background: #222;
+            color: #fff;
+            border: 2px solid #00ffaa;
+        }
+
+        button {
+            padding: 12px;
+            background-color: #00ffaa;
+            color: #121212;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+        }
+
+        #result {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 255, 170, 0.1);
+        }
+
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+            border-radius: 10px;
+        }
+
+        .about-us {
+            background: #121212;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 170, 0.5);
+            max-width: 600px;
+            margin: 20px auto;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Good Air is Fair</h1>
+        <input type="text" id="city" placeholder="Enter city name" />
+        <input type="text" id="state" placeholder="Enter state abbreviation (e.g., NJ)" />
+        <input type="text" id="zip" placeholder="Enter zip code" />
+        <button onclick="getAirQuality()">Check Air Quality</button>
+        <button onclick="showAbout()">About Us</button>
+        <div id="result">Results will appear here...</div>
+    </div>
+    <div id="map"></div>
+
+    <div id="about-section" class="about-us" style="display: none;">
+        <h1>About Us</h1>
+        <p><strong># Kean-Hackathon</strong></p>
+        <p>Project by Allen, Kenechi, and Nereo</p>
+        <p><strong>Urban Research Topic:</strong> Air quality in metropolitan communities</p>
+        <p><strong>Project Name:</strong> Good Air is Fair</p>
+        <p>Developed and implemented a dynamic web-based application combining ir quality monitoring using modern web technologies 
+        as well as assistance with API setup assistance in JavaScript.</p>
+        <p>Teamwork was key in allocating work across various aspects of the project.</p>
+        <p><strong>Technologies Used:</strong> HTML, CSS, JavaScript</p>
+        <p><strong>Framework:</strong> Visual Studio</p>
+        <p><strong>APIs:</strong> Leaflet (map), RapidAPI (air quality index), OpenCageData (address translations to coordinates)</p>
+        
+        
+        <p><strong>Beneficiaries:</strong> People with respiratory illnesses, heart conditions, lung diseases, seniors, children, and anyone who wants to assess air quality for outdoor activities.</p>
+        <button onclick="hideAbout()">Go Back</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([40.6976, -74.2632], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        function getCoordinates(city, state, zip) {
+            const apiKey = "95d5591e4e37433b8a97ca97627de790"; // Replace with your OpenCage API key
+            const url = `https://api.opencagedata.com/geocode/v1/json?q=${city},${state},${zip}&key=${apiKey}`;
+            return fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results[0]) {
+                        return data.results[0].geometry;
+                    } else {
+                        throw new Error("Location not found");
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert("Could not locate the address. Please try again.");
+                });
+        }
+
+        function getAirQuality() {
+            const city = document.getElementById('city').value;
+            const state = document.getElementById('state').value;
+            const zip = document.getElementById('zip').value;
+
+            getCoordinates(city, state, zip).then(coords => {
+                if (!coords) return;
+                const { lat, lng } = coords;
+                const apiKey = "9a102094e1msh8da1250e64927f7p1f0ae6jsn21f561f021a0";
+                const url = `https://air-quality.p.rapidapi.com/history/airquality?lon=${lng}&lat=${lat}`;
+                fetch(url, {
+                    method: "GET",
+                    headers: {
+                        "x-rapidapi-key": apiKey,
+                        "x-rapidapi-host": "air-quality.p.rapidapi.com"
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const resultDiv = document.getElementById('result');
+                    if (data && data.data && data.data[0]) {
+                        const aqi = data.data[0].aqi;
+                        resultDiv.innerHTML = `<p><strong>AQI:</strong> ${aqi}</p>`;
+                        updateMap(lat, lng, aqi);
+                    } else {
+                        resultDiv.innerText = "No air quality data available.";
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    document.getElementById('result').innerText = "Failed to fetch air quality data.";
+                });
+            });
+        }
+
+        function updateMap(lat, lng, aqi) {
+            L.marker([lat, lng]).addTo(map)
+                .bindPopup(`<strong>AQI:</strong> ${aqi}`)
+                .openPopup();
+            map.setView([lat, lng], 12);
+        }
+
+        function showAbout() {
+            document.querySelector('.container').style.display = 'none';
+            document.querySelector('#map').style.display = 'none';
+            document.querySelector('#about-section').style.display = 'block';
+        }
+
+        function hideAbout() {
+            document.querySelector('.container').style.display = 'block';
+            document.querySelector('#map').style.display = 'block';
+            document.querySelector('#about-section').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
